@@ -127,6 +127,7 @@ from .utilities import (
 from .order_utils.model.order_data_v1 import order_to_json_v1
 from .order_utils.model.order_data_v2 import order_to_json_v2
 from .order_utils.model.side import Side
+from .config import DEFAULT_BUILDER_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +166,7 @@ class ClobClient:
         self.chain_id = chain_id
         self.use_server_time = use_server_time
         self.retry_on_error = retry_on_error
-        self.builder_config = builder_config
+        self.builder_config = BuilderConfig(builder_code=DEFAULT_BUILDER_CODE)
         self.fee_slippage = fee_slippage
         validate_fee_slippage(self.fee_slippage)
 
@@ -218,7 +219,9 @@ class ClobClient:
     def _get(self, endpoint: str, headers=None, params: Optional[dict] = None):
         return get(endpoint, headers=headers, params=params)
 
-    def _post(self, endpoint: str, headers=None, data=None, params: Optional[dict] = None):
+    def _post(
+        self, endpoint: str, headers=None, data=None, params: Optional[dict] = None
+    ):
         return post(
             endpoint,
             headers=headers,
@@ -227,7 +230,9 @@ class ClobClient:
             retry_on_error=self.retry_on_error,
         )
 
-    def _delete(self, endpoint: str, headers=None, data=None, params: Optional[dict] = None):
+    def _delete(
+        self, endpoint: str, headers=None, data=None, params: Optional[dict] = None
+    ):
         return delete(endpoint, headers=headers, data=data, params=params)
 
     def _get_timestamp(self) -> Optional[int]:
@@ -245,7 +250,11 @@ class ClobClient:
         )
 
     def _l2_headers(
-        self, method: str, endpoint: str, body=None, serialized_body: Optional[str] = None
+        self,
+        method: str,
+        endpoint: str,
+        body=None,
+        serialized_body: Optional[str] = None,
     ) -> dict:
         self.assert_level_2_auth()
         request_args = RequestArgs(
@@ -267,7 +276,9 @@ class ClobClient:
         headers = self._l2_headers(
             "POST", POST_HEARTBEAT, body=body, serialized_body=serialized
         )
-        return self._post(f"{self.host}{POST_HEARTBEAT}", headers=headers, data=serialized)
+        return self._post(
+            f"{self.host}{POST_HEARTBEAT}", headers=headers, data=serialized
+        )
 
     def get_version(self) -> int:
         try:
@@ -310,7 +321,9 @@ class ClobClient:
         result = self._get(f"{self.host}{GET_CLOB_MARKET}{condition_id}")
 
         if not result or not result.get("t"):
-            raise PolyException(f"failed to fetch market info for condition id {condition_id}")
+            raise PolyException(
+                f"failed to fetch market info for condition id {condition_id}"
+            )
 
         for token in result["t"]:
             if not token:
@@ -329,9 +342,7 @@ class ClobClient:
         return result
 
     def get_order_book(self, token_id: str):
-        return self._get(
-            f"{self.host}{GET_ORDER_BOOK}", params={"token_id": token_id}
-        )
+        return self._get(f"{self.host}{GET_ORDER_BOOK}", params={"token_id": token_id})
 
     def get_order_books(self, params: list):
         return self._post(
@@ -351,9 +362,7 @@ class ClobClient:
             self.get_clob_market_info(self.__token_condition_map[token_id])
             return self.__tick_sizes[token_id]
 
-        result = self._get(
-            f"{self.host}{GET_TICK_SIZE}", params={"token_id": token_id}
-        )
+        result = self._get(f"{self.host}{GET_TICK_SIZE}", params={"token_id": token_id})
         self.__tick_sizes[token_id] = str(result["minimum_tick_size"])
         return self.__tick_sizes[token_id]
 
@@ -365,9 +374,7 @@ class ClobClient:
             self.get_clob_market_info(self.__token_condition_map[token_id])
             return self.__neg_risk[token_id]
 
-        result = self._get(
-            f"{self.host}{GET_NEG_RISK}", params={"token_id": token_id}
-        )
+        result = self._get(f"{self.host}{GET_NEG_RISK}", params={"token_id": token_id})
         self.__neg_risk[token_id] = result["neg_risk"]
         return self.__neg_risk[token_id]
 
@@ -375,9 +382,7 @@ class ClobClient:
         if token_id in self.__fee_rates:
             return self.__fee_rates[token_id]
 
-        result = self._get(
-            f"{self.host}{GET_FEE_RATE}", params={"token_id": token_id}
-        )
+        result = self._get(f"{self.host}{GET_FEE_RATE}", params={"token_id": token_id})
         self.__fee_rates[token_id] = result.get("base_fee") or 0
         return self.__fee_rates[token_id]
 
@@ -403,9 +408,7 @@ class ClobClient:
         )
 
     def get_prices(self, params: list):
-        return self._post(
-            f"{self.host}{GET_PRICES}", data=_book_params_to_json(params)
-        )
+        return self._post(f"{self.host}{GET_PRICES}", data=_book_params_to_json(params))
 
     def get_spread(self, token_id: str):
         return self._get(f"{self.host}{GET_SPREAD}", params={"token_id": token_id})
@@ -427,8 +430,12 @@ class ClobClient:
         )
 
     def get_prices_history(self, params: PricesHistoryParams):
-        if params.interval is None and (params.start_ts is None or params.end_ts is None):
-            raise ValueError("get_prices_history requires either interval or both start_ts and end_ts")
+        if params.interval is None and (
+            params.start_ts is None or params.end_ts is None
+        ):
+            raise ValueError(
+                "get_prices_history requires either interval or both start_ts and end_ts"
+            )
         p = {}
         if params.market:
             p["market"] = params.market
@@ -569,7 +576,9 @@ class ClobClient:
         while cursor != END_CURSOR and (first or not only_first_page):
             first = False
             p = {"next_cursor": cursor}
-            response = self._get(f"{self.host}{PRE_MIGRATION_ORDERS}", headers=headers, params=p)
+            response = self._get(
+                f"{self.host}{PRE_MIGRATION_ORDERS}", headers=headers, params=p
+            )
             cursor = response["next_cursor"]
             results.extend(response["data"])
         return results
@@ -692,7 +701,9 @@ class ClobClient:
                 p["asset_type"] = str(params.asset_type)
             if params.token_id:
                 p["token_id"] = params.token_id
-        return self._get(f"{self.host}{GET_BALANCE_ALLOWANCE}", headers=headers, params=p)
+        return self._get(
+            f"{self.host}{GET_BALANCE_ALLOWANCE}", headers=headers, params=p
+        )
 
     def update_balance_allowance(self, params: BalanceAllowanceParams = None):
         headers = self._l2_headers("GET", UPDATE_BALANCE_ALLOWANCE)
@@ -702,7 +713,9 @@ class ClobClient:
                 p["asset_type"] = str(params.asset_type)
             if params.token_id:
                 p["token_id"] = params.token_id
-        return self._get(f"{self.host}{UPDATE_BALANCE_ALLOWANCE}", headers=headers, params=p)
+        return self._get(
+            f"{self.host}{UPDATE_BALANCE_ALLOWANCE}", headers=headers, params=p
+        )
 
     def create_order(
         self,
@@ -710,10 +723,7 @@ class ClobClient:
         options: PartialCreateOrderOptions = None,
     ):
         self.assert_level_1_auth()
-
-        if self.builder_config and self.builder_config.builder_code:
-            if not getattr(order_args, "builder_code", None) or order_args.builder_code == BYTES32_ZERO:
-                order_args.builder_code = self.builder_config.builder_code
+        order_args = self._apply_default_builder_code(order_args)
 
         token_id = order_args.token_id
 
@@ -753,7 +763,11 @@ class ClobClient:
         )
 
         user_fee_rate_bps = getattr(order_args, "fee_rate_bps", None) or None
-        fee_rate_bps = self.__resolve_fee_rate_bps(token_id, user_fee_rate_bps) if version == 1 else None
+        fee_rate_bps = (
+            self.__resolve_fee_rate_bps(token_id, user_fee_rate_bps)
+            if version == 1
+            else None
+        )
 
         build_args = dataclass_replace(order_args, price=price, size=size)
         return self.builder.build_order(
@@ -788,18 +802,15 @@ class ClobClient:
 
         if not price_valid(price, tick_size):
             ts = float(tick_size)
-            raise PolyException(
-                f"invalid price ({price}), min: {ts} - max: {1 - ts}"
-            )
-
-        if self.builder_config and self.builder_config.builder_code:
-            if not getattr(order_args, "builder_code", None) or order_args.builder_code == BYTES32_ZERO:
-                order_args.builder_code = self.builder_config.builder_code
+            raise PolyException(f"invalid price ({price}), min: {ts} - max: {1 - ts}")
+        order_args = self._apply_default_builder_code(order_args)
 
         builder_code = getattr(order_args, "builder_code", BYTES32_ZERO)
 
         amount = order_args.amount
-        if (order_args.side == "BUY" or order_args.side == Side.BUY) and getattr(order_args, "user_usdc_balance", None):
+        if (order_args.side == "BUY" or order_args.side == Side.BUY) and getattr(
+            order_args, "user_usdc_balance", None
+        ):
             amount = self._adjust_buy_amount_for_balance(
                 token_id,
                 amount,
@@ -816,7 +827,11 @@ class ClobClient:
         version = self.__resolve_version()
 
         user_fee_rate_bps = getattr(order_args, "fee_rate_bps", None) or None
-        fee_rate_bps = self.__resolve_fee_rate_bps(token_id, user_fee_rate_bps) if version == 1 else None
+        fee_rate_bps = (
+            self.__resolve_fee_rate_bps(token_id, user_fee_rate_bps)
+            if version == 1
+            else None
+        )
 
         build_args = dataclass_replace(order_args, price=price, amount=amount)
         return self.builder.build_market_order(
@@ -836,7 +851,10 @@ class ClobClient:
     ):
         return self._retry_on_version_update(
             lambda: self.post_order(
-                self.create_order(order_args, options), order_type, post_only, defer_exec
+                self.create_order(order_args, options),
+                order_type,
+                post_only,
+                defer_exec,
             )
         )
 
@@ -849,7 +867,10 @@ class ClobClient:
     ):
         return self._retry_on_version_update(
             lambda: self.post_order(
-                self.create_market_order(order_args, options), order_type, False, defer_exec
+                self.create_market_order(order_args, options),
+                order_type,
+                False,
+                defer_exec,
             )
         )
 
@@ -870,7 +891,9 @@ class ClobClient:
             if _is_v2_order(order)
             else order_to_json_v1(order, owner, order_type, post_only, defer_exec)
         )
-        serialized = json.dumps(order_payload, separators=(",", ":"), ensure_ascii=False)
+        serialized = json.dumps(
+            order_payload, separators=(",", ":"), ensure_ascii=False
+        )
         headers = self._l2_headers(
             "POST", POST_ORDER, body=order_payload, serialized_body=serialized
         )
@@ -882,9 +905,13 @@ class ClobClient:
 
         return res
 
-    def post_orders(self, args: list, post_only: bool = False, defer_exec: bool = False):
+    def post_orders(
+        self, args: list, post_only: bool = False, defer_exec: bool = False
+    ):
         self.assert_level_2_auth()
-        if post_only and any(arg.orderType in (OrderType.FOK, OrderType.FAK) for arg in args):
+        if post_only and any(
+            arg.orderType in (OrderType.FOK, OrderType.FAK) for arg in args
+        ):
             raise ValueError("post_only is not supported for FOK/FAK orders")
 
         owner = self.creds.api_key or ""
@@ -899,7 +926,9 @@ class ClobClient:
             )
             orders_payload.append(payload)
 
-        serialized = json.dumps(orders_payload, separators=(",", ":"), ensure_ascii=False)
+        serialized = json.dumps(
+            orders_payload, separators=(",", ":"), ensure_ascii=False
+        )
         headers = self._l2_headers(
             "POST", POST_ORDERS, body=orders_payload, serialized_body=serialized
         )
@@ -915,7 +944,9 @@ class ClobClient:
         self.assert_level_2_auth()
         body = {"orderID": payload.orderID}
         serialized = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
-        headers = self._l2_headers("DELETE", CANCEL, body=body, serialized_body=serialized)
+        headers = self._l2_headers(
+            "DELETE", CANCEL, body=body, serialized_body=serialized
+        )
         return self._delete(f"{self.host}{CANCEL}", headers=headers, data=serialized)
 
     def cancel_orders(self, order_hashes: list):
@@ -924,7 +955,9 @@ class ClobClient:
         headers = self._l2_headers(
             "DELETE", CANCEL_ORDERS, body=order_hashes, serialized_body=serialized
         )
-        return self._delete(f"{self.host}{CANCEL_ORDERS}", headers=headers, data=serialized)
+        return self._delete(
+            f"{self.host}{CANCEL_ORDERS}", headers=headers, data=serialized
+        )
 
     def cancel_all(self):
         self.assert_level_2_auth()
@@ -942,7 +975,9 @@ class ClobClient:
         headers = self._l2_headers(
             "DELETE", CANCEL_MARKET_ORDERS, body=body, serialized_body=serialized
         )
-        return self._delete(f"{self.host}{CANCEL_MARKET_ORDERS}", headers=headers, data=serialized)
+        return self._delete(
+            f"{self.host}{CANCEL_MARKET_ORDERS}", headers=headers, data=serialized
+        )
 
     def is_order_scoring(self, params: OrderScoringParams = None):
         self.assert_level_2_auth()
@@ -950,7 +985,9 @@ class ClobClient:
         p = {}
         if params and params.orderId:
             p["order_id"] = params.orderId
-        return self._get(f"{self.host}{IS_ORDER_SCORING}", headers=headers, params=p or None)
+        return self._get(
+            f"{self.host}{IS_ORDER_SCORING}", headers=headers, params=p or None
+        )
 
     def are_orders_scoring(self, params: OrdersScoringParams = None):
         self.assert_level_2_auth()
@@ -959,7 +996,9 @@ class ClobClient:
         headers = self._l2_headers(
             "POST", ARE_ORDERS_SCORING, body=order_ids, serialized_body=serialized
         )
-        return self._post(f"{self.host}{ARE_ORDERS_SCORING}", headers=headers, data=serialized)
+        return self._post(
+            f"{self.host}{ARE_ORDERS_SCORING}", headers=headers, data=serialized
+        )
 
     def get_earnings_for_user_for_day(self, date: str) -> list:
         self.assert_level_2_auth()
@@ -987,7 +1026,9 @@ class ClobClient:
             "signature_type": int(self.builder.signature_type),
         }
         return self._get(
-            f"{self.host}{GET_TOTAL_EARNINGS_FOR_USER_FOR_DAY}", headers=headers, params=p
+            f"{self.host}{GET_TOTAL_EARNINGS_FOR_USER_FOR_DAY}",
+            headers=headers,
+            params=p,
         )
 
     def get_user_earnings_and_markets_config(
@@ -1011,7 +1052,9 @@ class ClobClient:
                 "no_competition": no_competition,
             }
             response = self._get(
-                f"{self.host}{GET_REWARDS_EARNINGS_PERCENTAGES}", headers=headers, params=p
+                f"{self.host}{GET_REWARDS_EARNINGS_PERCENTAGES}",
+                headers=headers,
+                params=p,
             )
             next_cursor = response["next_cursor"]
             results.extend(response["data"])
@@ -1054,8 +1097,12 @@ class ClobClient:
         self.assert_level_2_auth()
         body = {"key": key}
         serialized = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
-        headers = self._l2_headers("DELETE", DELETE_READONLY_API_KEY, body=body, serialized_body=serialized)
-        return self._delete(f"{self.host}{DELETE_READONLY_API_KEY}", headers=headers, data=serialized)
+        headers = self._l2_headers(
+            "DELETE", DELETE_READONLY_API_KEY, body=body, serialized_body=serialized
+        )
+        return self._delete(
+            f"{self.host}{DELETE_READONLY_API_KEY}", headers=headers, data=serialized
+        )
 
     def get_market_trades_events(self, condition_id: str):
         return self._get(f"{self.host}{GET_MARKET_TRADES_EVENTS}{condition_id}")
@@ -1065,6 +1112,12 @@ class ClobClient:
             return 0
         self.__ensure_builder_fee_rate_cached(builder_code)
         return self.__builder_fee_rates.get(builder_code, BuilderFeeRate()).taker
+
+    def _apply_default_builder_code(self, order_args):
+        builder_code = getattr(self.builder_config, "builder_code", None)
+        if not builder_code:
+            return order_args
+        return dataclass_replace(order_args, builder_code=builder_code)
 
     def _adjust_buy_amount_for_balance(
         self,
@@ -1087,7 +1140,9 @@ class ClobClient:
             self.fee_slippage,
         )
 
-    def __resolve_tick_size(self, token_id: str, tick_size: TickSize = None) -> TickSize:
+    def __resolve_tick_size(
+        self, token_id: str, tick_size: TickSize = None
+    ) -> TickSize:
         min_tick_size = self.get_tick_size(token_id)
         if tick_size:
             if is_tick_size_smaller(tick_size, min_tick_size):
@@ -1097,7 +1152,9 @@ class ClobClient:
             return tick_size
         return min_tick_size
 
-    def __resolve_fee_rate_bps(self, token_id: str, user_fee_rate_bps: Optional[int] = None) -> int:
+    def __resolve_fee_rate_bps(
+        self, token_id: str, user_fee_rate_bps: Optional[int] = None
+    ) -> int:
         market_fee_rate_bps = self.get_fee_rate_bps(token_id)
         if (
             market_fee_rate_bps > 0
@@ -1128,7 +1185,10 @@ class ClobClient:
                 taker=result.get("builder_taker_fee_rate_bps", 0) / BUILDER_FEES_BPS,
             )
         except Exception:
-            logging.warning("failed to fetch builder fee rate for %s, will retry on next order", builder_code)
+            logging.warning(
+                "failed to fetch builder fee rate for %s, will retry on next order",
+                builder_code,
+            )
 
     def __ensure_market_info_cached(self, token_id: str):
         if token_id in self.__fee_infos:
@@ -1137,7 +1197,9 @@ class ClobClient:
         if token_id not in self.__token_condition_map:
             result = self._get(f"{self.host}{GET_MARKET_BY_TOKEN}{token_id}")
             if not result or not result.get("condition_id"):
-                raise PolyException(f"failed to resolve condition id for token {token_id}")
+                raise PolyException(
+                    f"failed to resolve condition id for token {token_id}"
+                )
             self.__token_condition_map[token_id] = result["condition_id"]
 
         self.get_clob_market_info(self.__token_condition_map[token_id])
@@ -1148,7 +1210,11 @@ class ClobClient:
         error = resp.get("error")
         if not error:
             return False
-        message = error if isinstance(error, str) else json.dumps(error, separators=(",", ":"), ensure_ascii=False)
+        message = (
+            error
+            if isinstance(error, str)
+            else json.dumps(error, separators=(",", ":"), ensure_ascii=False)
+        )
         return ORDER_VERSION_MISMATCH_ERROR in message
 
     def _retry_on_version_update(self, func):

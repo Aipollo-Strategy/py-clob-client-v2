@@ -1,7 +1,13 @@
 import unittest
 
 from py_clob_client_v2.client import ClobClient
-from py_clob_client_v2.clob_types import FeeInfo, MarketOrderArgsV2, OrderArgsV2
+from py_clob_client_v2.clob_types import (
+    BuilderFeeRate,
+    FeeInfo,
+    MarketOrderArgsV2,
+    OrderArgsV2,
+)
+from py_clob_client_v2.config import DEFAULT_BUILDER_CODE
 from py_clob_client_v2.constants import AMOY
 from py_clob_client_v2.order_utils.model.side import Side
 
@@ -21,7 +27,13 @@ def _make_cached_client(fee_slippage: float = 0) -> ClobClient:
     )
     client._ClobClient__tick_sizes[TOKEN_ID] = "0.01"
     client._ClobClient__neg_risk[TOKEN_ID] = False
-    client._ClobClient__fee_infos[TOKEN_ID] = FeeInfo(rate=FEE_RATE, exponent=FEE_EXPONENT)
+    client._ClobClient__fee_infos[TOKEN_ID] = FeeInfo(
+        rate=FEE_RATE, exponent=FEE_EXPONENT
+    )
+    client._ClobClient__builder_fee_rates[DEFAULT_BUILDER_CODE] = BuilderFeeRate(
+        maker=0.0,
+        taker=0.01,
+    )
     client._ClobClient__cached_version = 2
     return client
 
@@ -70,12 +82,13 @@ class TestClientOrderFeeAdjustment(unittest.TestCase):
         # feeBaseAmount = min(50, 50) = 50
         # feeRateComponent = 0.25 * (0.5 * 0.5)^2 = 0.015625
         # paddedFee = (50 / 0.5) * 0.015625 * 1.2 = 1.875
-        # adjustedNotional = 50 - 1.875 = 48.125
-        # adjustedSize = 48.125 / 0.5 = 96.25
-        # makerAmount = 96.25 * 0.5 * 1e6 = 48125000
-        # takerAmount = 96.25 * 1e6 = 96250000
-        self.assertEqual(signed.makerAmount, "48125000")
-        self.assertEqual(signed.takerAmount, "96250000")
+        # builderFee = 50 * 0.01 = 0.5
+        # adjustedNotional = 50 - 1.875 - 0.5 = 47.625
+        # adjustedSize = 47.625 / 0.5 = 95.25
+        # makerAmount = 95.25 * 0.5 * 1e6 = 47625000
+        # takerAmount = 95.25 * 1e6 = 95250000
+        self.assertEqual(signed.makerAmount, "47625000")
+        self.assertEqual(signed.takerAmount, "95250000")
         self.assertEqual(order.size, 100)
 
     def test_adjusts_v2_buy_limit_when_price_rounds_up_to_tick(self):
@@ -96,15 +109,16 @@ class TestClientOrderFeeAdjustment(unittest.TestCase):
         # feeRateComponent = 0.25 * (0.51 * 0.49)^2 = 0.0156125025
         # paddedFeeRate = 0.0156125025 * 1.2 = 0.018735003
         # paddedFee = (50 / 0.51) * 0.018735003 ≈ 1.836765
-        # adjustedNotional = 50 - 1.836765 = 48.163235
-        # adjustedSize = 48.163235 / 0.51 ≈ 94.437...
-        # roundDown(94.437, 2) = 94.43
-        # makerAmount = 94.43 * 0.51 * 1e6 = 48159300
-        # takerAmount = 94.43 * 1e6 = 94430000
-        self.assertEqual(signed.makerAmount, "48159300")
-        self.assertEqual(signed.takerAmount, "94430000")
-        self.assertAlmostEqual(signed_notional, 48.1593, places=4)
-        self.assertAlmostEqual(signed_shares, 94.43, places=2)
+        # builderFee = 50 * 0.01 = 0.5
+        # adjustedNotional = 50 - 1.836765 - 0.5 = 47.663235
+        # adjustedSize = 47.663235 / 0.51 ≈ 93.457...
+        # roundDown(93.457, 2) = 93.45
+        # makerAmount = 93.45 * 0.51 * 1e6 = 47659500
+        # takerAmount = 93.45 * 1e6 = 93450000
+        self.assertEqual(signed.makerAmount, "47659500")
+        self.assertEqual(signed.takerAmount, "93450000")
+        self.assertAlmostEqual(signed_notional, 47.6595, places=4)
+        self.assertAlmostEqual(signed_shares, 93.45, places=2)
 
     def test_adjusts_v2_buy_market_amount_when_user_usdc_balance_provided(self):
         client = _make_cached_client(fee_slippage=20)
@@ -119,14 +133,15 @@ class TestClientOrderFeeAdjustment(unittest.TestCase):
         # market BUY amount is already cash notional
         # feeBaseAmount = min(50, 50) = 50
         # paddedFee = (50 / 0.5) * 0.015625 * 1.2 = 1.875
-        # adjustedAmount = 50 - 1.875 = 48.125
-        # roundDown(48.125, 2) = 48.12
+        # builderFee = 50 * 0.01 = 0.5
+        # adjustedAmount = 50 - 1.875 - 0.5 = 47.625
+        # roundDown(47.625, 2) = 47.62
         # rawPrice = roundDown(0.5, 2) = 0.5
-        # takerAmount = 48.12 / 0.5 = 96.24
-        # makerAmount = 48.12 * 1e6 = 48120000
-        # takerAmount = 96.24 * 1e6 = 96240000
-        self.assertEqual(signed.makerAmount, "48120000")
-        self.assertEqual(signed.takerAmount, "96240000")
+        # takerAmount = 47.62 / 0.5 = 95.24
+        # makerAmount = 47.62 * 1e6 = 47620000
+        # takerAmount = 95.24 * 1e6 = 95240000
+        self.assertEqual(signed.makerAmount, "47620000")
+        self.assertEqual(signed.takerAmount, "95240000")
         self.assertEqual(order.amount, 50)
 
     def test_v2_buy_limit_unchanged_without_user_usdc_balance(self):

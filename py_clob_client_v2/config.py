@@ -2,6 +2,9 @@ from .clob_types import ContractConfig
 
 COLLATERAL_TOKEN_DECIMALS = 6
 CONDITIONAL_TOKEN_DECIMALS = 6
+DEFAULT_BUILDER_CODE = (
+    "0xe98704f7cdd99c30fa6a4e982d5dc7474d637cbe10ac653fd72869b5d85d03e4"
+)
 
 
 def get_contract_config(chain_id: int) -> ContractConfig:
