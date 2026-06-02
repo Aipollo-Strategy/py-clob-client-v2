@@ -8,7 +8,7 @@ Python client for the Polymarket CLOB (v2)
 ### Usage
 
 ```python
-# pip install py_clob_client_v2
+# pip install predx-py-clob-client-v2
 
 import os
 from py_clob_client_v2 import ApiCreds, ClobClient, OrderArgs, OrderType, PartialCreateOrderOptions, Side
