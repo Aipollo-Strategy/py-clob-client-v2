@@ -14,7 +14,7 @@ setuptools.setup(
     description="Python client for the Polymarket CLOBV2",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Polymarket/py-clob-client-v2",
+    url="https://github.com/Aipollo-Strategy/py-clob-client-v2",
     install_requires=[
         "eth-account>=0.13.0",
         "eth-abi>=5.0.0",
@@ -24,7 +24,7 @@ setuptools.setup(
         "httpx[http2]>=0.27.0",
     ],
     project_urls={
-        "Bug Tracker": "https://github.com/Polymarket/py-clob-client-v2/issues",
+        "Bug Tracker": "https://github.com/Aipollo-Strategy/py-clob-client-v2/issues",
     },
     classifiers=[
         "Programming Language :: Python :: 3",
